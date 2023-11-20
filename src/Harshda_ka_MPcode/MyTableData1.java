@@ -2,107 +2,180 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-public class MyTableData1 extends JFrame implements ActionListener {
+import java.sql.*;
+import javax.swing.table.DefaultTableModel;
+
+public class MyPizzaOrder extends JFrame implements ActionListener {
     JTable table;
     JScrollPane scrollPane;
     JButton btnAdd;
-    JLabel lbOrderNo, lbRate, lbCustomerName, lbAmount, lbPhoneNo, lbPayment, lbItems, lbAddress;
+    JLabel lbGreatings, lbOrderNo, lbRate, lbCustomerName, lbAmount, lbPhoneNo, lbPayment, lbItems, lbAddress, imgLabel;
     JTextField tfOrderNo, tfRate, tfCustomerName, tfAmount, tfPhoneNo;
-    JComboBox<String> cbPayment;
-    JList<String> lstItems;
+    JComboBox<String> cbPayment, cbToppings;
     JTextArea taAddress;
-    JScrollPane paneForItems;
-   
-    public MyTableData1() {
-        setTitle("Pizza Ordering and Billing System");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        setSize(800, 600);
-        setLayout(new GridBagLayout());
+    
+    //JScrollPane paneForItems;
+    DefaultTableModel model;
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 10, 5, 10);
-        gbc.anchor = GridBagConstraints.WEST;
+    Connection conn;
+    Statement stmt;
 
-        table = new JTable();
-        scrollPane = new JScrollPane(table);
-        scrollPane.setPreferredSize(new Dimension(400, 200));
-        scrollPane.setVisible(false);
-        addComponent(scrollPane, gbc, 0, 0, 2, 1);
+    public MyPizzaOrder() {
+        this.setTitle("PIZZA PICASSO SHOP");
+        this.setSize(800, 790);
+        this.setLayout(null);
 
-        lbOrderNo = new JLabel("Order No: ");
-        tfOrderNo = new JTextField(15);
-        tfOrderNo.setPreferredSize(new Dimension(150, 25));
-        addComponent(lbOrderNo, gbc, 0, 1, 1, 1);
-        addComponent(tfOrderNo, gbc, 1, 1, 1, 1);
-
-        lbRate = new JLabel("Rate: ");
-        tfRate = new JTextField(15);
-        tfRate.setPreferredSize(new Dimension(150, 25));
-        addComponent(lbRate, gbc, 0, 2, 1, 1);
-        addComponent(tfRate, gbc, 1, 2, 1, 1);
-
-        lbCustomerName = new JLabel("Customer Name:");
-        tfCustomerName = new JTextField(15);
-        tfCustomerName.setPreferredSize(new Dimension(150, 25));
-        addComponent(lbCustomerName, gbc, 0, 3, 1, 1);
-        addComponent(tfCustomerName, gbc, 1, 3, 1, 1);
-
-        lbAmount = new JLabel("Amount:");
-        tfAmount = new JTextField(15);
-        tfAmount.setPreferredSize(new Dimension(150, 25));
-        addComponent(lbAmount, gbc, 0, 4, 1, 1);
-        addComponent(tfAmount, gbc, 1, 4, 1, 1);
-
-        lbPhoneNo = new JLabel("Phone No:");
-        tfPhoneNo = new JTextField(15);
-        tfPhoneNo.setPreferredSize(new Dimension(150, 25));
-        addComponent(lbPhoneNo, gbc, 0, 5, 1, 1);
-        addComponent(tfPhoneNo, gbc, 1, 5, 1, 1);
-
-        lbPayment = new JLabel("Payment Method:");
-        addComponent(lbPayment, gbc, 0, 6, 1, 1);
-        cbPayment = new JComboBox<>();
-        cbPayment.addItem("Cash on Delivery");
-        cbPayment.addItem("Debit Card");
-        cbPayment.addItem("Net Banking");
-        addComponent(cbPayment, gbc, 1, 6, 1, 1);
-
-        lbAddress = new JLabel("Address: ");
-        addComponent(lbAddress, gbc, 0, 7, 1, 1);
-        taAddress = new JTextArea(3, 15);
-        addComponent(taAddress, gbc, 1, 7, 1, 1);
-
-        lbItems = new JLabel("Pizza Toppings: ");
-        addComponent(lbItems, gbc, 0, 8, 1, 1);
+        String[] modes = {"", "Cash on Delivery", "Debit Card", "Net Banking"};
         String[] items = {"Pepperoni", "Margherita", "Vegetarian", "Hawaiian", "Veggie Delight", "Meat Lovers", "BBQ Chicken", "Extra Cheese", "Spicy Sausage", "Supreme"};
-        lstItems = new JList<>(items);
-        paneForItems = new JScrollPane(lstItems);
-        addComponent(paneForItems, gbc, 1, 8, 1, 1);
-        
-        btnAdd = new JButton("Generate Bill");
+        String[] columns = {"Order No", "Amount", "Customer Name", "Phone No", "Payment Mode", "Address", "Selected Topping"};
+        model = new DefaultTableModel(columns, 0);
+        table = new JTable(model);
+
+        lbGreatings = new JLabel("Welcome To Pizza Picasso");
+        lbGreatings.setBounds(200, 40, 450, 40);
+        lbGreatings.setFont(new Font("Serif", Font.PLAIN, 35));
+        lbGreatings.setForeground(Color.BLACK);
+        this.add(this.lbGreatings);
+
+        lbOrderNo = new JLabel("Order NO:");
+        lbOrderNo.setBounds(110, 170, 150, 30);
+        lbOrderNo.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbOrderNo.setForeground(Color.BLACK);
+        this.add(this.lbOrderNo);
+
+        tfOrderNo = new JTextField();
+        tfOrderNo.setBounds(300, 170, 230, 30);
+        tfOrderNo.setFont(new Font("Ariel", Font.BOLD, 20));
+        this.add(this.tfOrderNo);
+
+        lbRate = new JLabel("Amount");
+        lbRate.setBounds(110, 230, 200, 30);
+        lbRate.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbRate.setForeground(Color.BLACK);
+        this.add(this.lbRate);
+
+        tfRate = new JTextField();
+        tfRate.setBounds(300, 230, 230, 30);
+        tfRate.setFont(new Font("Ariel", Font.BOLD, 25));
+        this.add(this.tfRate);
+
+        lbCustomerName = new JLabel("Name:");
+        lbCustomerName.setBounds(110, 280, 150, 30);
+        lbCustomerName.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbCustomerName.setForeground(Color.BLACK);
+        this.add(this.lbCustomerName);
+
+        tfCustomerName = new JTextField();
+        tfCustomerName.setBounds(300, 280, 230, 30);
+        tfCustomerName.setFont(new Font("Ariel", Font.BOLD, 20));
+        this.add(this.tfCustomerName);
+
+        lbPhoneNo = new JLabel("Phone No");
+        lbPhoneNo.setBounds(110, 335, 150, 30);
+        lbPhoneNo.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbPhoneNo.setForeground(Color.BLACK);
+        this.add(this.lbPhoneNo);
+
+        tfPhoneNo = new JTextField();
+        tfPhoneNo.setBounds(300, 335, 230, 30);
+        tfPhoneNo.setFont(new Font("Ariel", Font.BOLD, 20));
+        this.add(this.tfPhoneNo);
+
+        lbPayment = new JLabel("Payment Mode");
+        lbPayment.setBounds(110, 400, 190, 30);
+        lbPayment.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbPayment.setForeground(Color.BLACK);
+        this.add(this.lbPayment);
+
+        cbPayment = new JComboBox<>(modes);
+        cbPayment.setFont(new Font("Railway", Font.BOLD, 14));
+        cbPayment.setBounds(300, 400, 400, 40);
+        cbPayment.setBackground(Color.WHITE);
+        this.add(cbPayment);
+
+        lbAddress = new JLabel("Address:");
+        lbAddress.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbAddress.setBounds(110, 470, 190, 30);
+        this.add(this.lbAddress);
+
+        taAddress = new JTextArea();
+        taAddress.setFont(new Font("Railway", Font.BOLD, 14));
+        taAddress.setBounds(300, 470, 400, 100);
+        taAddress.setLineWrap(true);
+        taAddress.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+        this.add(this.taAddress);
+
+        lbItems = new JLabel("Toppings: ");
+        lbItems.setBounds(110, 590, 150, 30);
+        lbItems.setFont(new Font("Serif", Font.PLAIN, 25));
+        lbItems.setForeground(Color.BLACK);
+        this.add(this.lbItems);
+
+        cbToppings = new JComboBox<>(items);
+        cbToppings.setFont(new Font("Railway", Font.BOLD, 14));
+        cbToppings.setBounds(300, 590, 400, 40);
+        cbToppings.setBackground(Color.WHITE);
+        this.add(cbToppings);
+
+        btnAdd = new JButton("Add");
+        btnAdd.setBackground(Color.LIGHT_GRAY);
+        btnAdd.setForeground(Color.DARK_GRAY);
+        btnAdd.setFont(new Font("Ariel", Font.BOLD, 15));
+        btnAdd.setBounds(550, 650, 180, 40);
         btnAdd.addActionListener(this);
-        addComponent(btnAdd, gbc, 0, 9, 2, 1);
+        this.add(this.btnAdd);
 
-        setLocationRelativeTo(null);
-        setVisible(true);
+        connectToDatabase();
+        getContentPane().setBackground(new Color(220, 220, 220));
+        this.setLocation(350, 10);
+        this.setVisible(true);
     }
+     @Override
+    public void actionPerformed(ActionEvent ae){
+        if (ae.getSource() == btnAdd) {
+            String orderNo = tfOrderNo.getText();
+            String amount = tfRate.getText();
+            String customerName = tfCustomerName.getText();
+            String phoneNo = tfPhoneNo.getText();
+            String paymentMode = (String) cbPayment.getSelectedItem();
+            String address = taAddress.getText();
+            String selectedTopping = (String) cbToppings.getSelectedItem();
+            
+                 try {
+                   Statement stmt = conn.createStatement();
+                   String sql = "INSERT INTO tblOrders (OrderNo, Amount, CustomerName, PhoneNo, PaymentMode, Address, SelectedTopping) " +
+                    "VALUES ('" + orderNo + "', '" + amount + "', '" + customerName + "', '" +
+                    phoneNo + "', '" + paymentMode + "', '" + address + "', '" + selectedTopping + "')";
+                   
+                   Object[] rowData = {orderNo, amount, customerName, phoneNo, paymentMode, address, selectedTopping};
+                   model.addRow(rowData);
 
-    private void addComponent(Component comp, GridBagConstraints gbc, int x, int y, int width, int height) {
-        gbc.gridx = x;
-        gbc.gridy = y;
-        gbc.gridwidth = width;
-        gbc.gridheight = height;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
-        add(comp, gbc);
+                    stmt.executeUpdate(sql);
+                    JOptionPane.showMessageDialog(this, "Order information added to database.");
+
+                    stmt.close();
+                    conn.close();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+        
     }
+    
+}
+    private void connectToDatabase() {
+        
+        String url = "jdbc:mysql:///pizzaordersystem"; 
+        String user = "root"; 
+        String password = "root"; 
 
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        // Idhar tumhara button pai kuch kam kroo..... :)
+        try {
+            conn = DriverManager.getConnection(url, user, password);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void main(String[] args) {
-        new MyTableData1();
+        new MyPizzaOrder();
     }
 }
