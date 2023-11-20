@@ -3,10 +3,9 @@ import java.awt.*;
 import java.awt.event.*;
 
 import java.sql.*;
-import javax.swing.table.DefaultTableModel;
+
 
 public class MyPizzaOrder extends JFrame implements ActionListener {
-    JTable table;
     JButton btnAdd;
     JLabel lbGreatings, lbOrderNo, lbRate, lbCustomerName, lbAmount, lbPhoneNo, lbPayment, lbItems, lbAddress, imgLabel;
     JTextField tfOrderNo, tfRate, tfCustomerName, tfAmount, tfPhoneNo;
