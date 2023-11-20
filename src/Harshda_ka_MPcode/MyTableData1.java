@@ -7,16 +7,12 @@ import javax.swing.table.DefaultTableModel;
 
 public class MyPizzaOrder extends JFrame implements ActionListener {
     JTable table;
-    JScrollPane scrollPane;
     JButton btnAdd;
     JLabel lbGreatings, lbOrderNo, lbRate, lbCustomerName, lbAmount, lbPhoneNo, lbPayment, lbItems, lbAddress, imgLabel;
     JTextField tfOrderNo, tfRate, tfCustomerName, tfAmount, tfPhoneNo;
     JComboBox<String> cbPayment, cbToppings;
     JTextArea taAddress;
     
-    //JScrollPane paneForItems;
-    DefaultTableModel model;
-
     Connection conn;
     Statement stmt;
 
@@ -27,10 +23,7 @@ public class MyPizzaOrder extends JFrame implements ActionListener {
 
         String[] modes = {"", "Cash on Delivery", "Debit Card", "Net Banking"};
         String[] items = {"Pepperoni", "Margherita", "Vegetarian", "Hawaiian", "Veggie Delight", "Meat Lovers", "BBQ Chicken", "Extra Cheese", "Spicy Sausage", "Supreme"};
-        String[] columns = {"Order No", "Amount", "Customer Name", "Phone No", "Payment Mode", "Address", "Selected Topping"};
-        model = new DefaultTableModel(columns, 0);
-        table = new JTable(model);
-
+      
         lbGreatings = new JLabel("Welcome To Pizza Picasso");
         lbGreatings.setBounds(200, 40, 450, 40);
         lbGreatings.setFont(new Font("Serif", Font.PLAIN, 35));
@@ -146,13 +139,10 @@ public class MyPizzaOrder extends JFrame implements ActionListener {
                    String sql = "INSERT INTO tblOrders (OrderNo, Amount, CustomerName, PhoneNo, PaymentMode, Address, SelectedTopping) " +
                     "VALUES ('" + orderNo + "', '" + amount + "', '" + customerName + "', '" +
                     phoneNo + "', '" + paymentMode + "', '" + address + "', '" + selectedTopping + "')";
-                   
-                   Object[] rowData = {orderNo, amount, customerName, phoneNo, paymentMode, address, selectedTopping};
-                   model.addRow(rowData);
-
+                  
                     stmt.executeUpdate(sql);
                     JOptionPane.showMessageDialog(this, "Order information added to database.");
-
+                    
                     stmt.close();
                     conn.close();
                 } catch (SQLException ex) {
