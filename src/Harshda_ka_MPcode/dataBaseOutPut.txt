@@ -1,7 +1,5 @@
 mysql> use pizzaordersystem;
 Database changed
-mysql> select * from pizzaordersystem;
-ERROR 1146 (42S02): Table 'pizzaordersystem.pizzaordersystem' doesn't exist
 mysql> select * from tblOrders;
 +---------+--------+--------------+------------+------------------+---------------------+-----------------+
 | OrderNo | Amount | CustomerName | PhoneNo    | PaymentMode      | Address             | SelectedTopping |
