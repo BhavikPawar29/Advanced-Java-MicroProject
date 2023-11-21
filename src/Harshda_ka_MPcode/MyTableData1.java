@@ -149,7 +149,26 @@ public class MyPizzaOrder extends JFrame implements ActionListener {
                 }
         
     }
+    private void displayBill() {
+    String[] columnNames = {"Order No", "Amount", "Customer Name", "Phone No", "Payment Mode", "Address", "Selected Topping"};
+
+    String orderNo = tfOrderNo.getText();
+    String amount = tfRate.getText();
+    String customerName = tfCustomerName.getText();
+    String phoneNo = tfPhoneNo.getText();
+    String paymentMode = (String) cbPayment.getSelectedItem();
+    String address = taAddress.getText();
+    String selectedTopping = (String) cbToppings.getSelectedItem();
+
+    String[][] data = {
+        {orderNo, amount, customerName, phoneNo, paymentMode, address, selectedTopping}
+    };
+
+    JTable billTable = new JTable(data, columnNames);
+    JScrollPane scrollPane = new JScrollPane(billTable);
     
+    JOptionPane.showMessageDialog(this, scrollPane, "Bill Details", JOptionPane.PLAIN_MESSAGE);
+    }
 }
     private void connectToDatabase() {
         
