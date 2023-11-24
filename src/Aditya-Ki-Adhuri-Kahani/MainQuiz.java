@@ -100,7 +100,7 @@ class QuizDatabase {
     }
 
     public String getNextQuestion(int questionNumber) {
-        String query = "SELECT question FROM  WHERE  = ?";
+        String query = "SELECT question FROM tblQuiz WHERE  = ?";
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(query);
             preparedStatement.setInt(1, questionNumber);
@@ -115,7 +115,7 @@ class QuizDatabase {
         return null;
     }
         public boolean submitAnswer(int questionNumber, String answer) {
-        String query = "UPDATE your_question_table SET  = ? WHERE  = ?";
+        String query = "UPDATE tblQuiz SET  = ? WHERE  = ?";
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(query);
             preparedStatement.setString(1, answer);
