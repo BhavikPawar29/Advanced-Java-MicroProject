@@ -1,12 +1,13 @@
 import java.awt.*;
 import javax.swing.*;
+import java.sql.*;
 
 public class MainQuiz extends JFrame {
-    JLabel lbTimer;
-    JLabel lbQuestion;
-    JRadioButton rbOption1, rbOption2, rbOption3, rbOption4;
-    JButton btnNext, btnSubmit;
-    JLabel lbInstruction;
+    private JLabel timerLabel;
+    private JLabel questionLabel;
+    private JButton nextButton, submitButton;
+    private QuizDatabase quizDatabase;
+    private int currentQuestionNumber = 1;
 
     private void initializeUI() {
         setTitle("Quiz");
@@ -14,65 +15,118 @@ public class MainQuiz extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        GridBagConstraints con = new GridBagConstraints();
+        GridBagConstraints constraints = new GridBagConstraints();
         setLayout(new GridBagLayout());
 
-        lbTimer = new JLabel();
-        setConstraints(con, 0, 0, 1, 1);
-        add(lbTimer, con);
+        timerLabel = new JLabel("Timer Placeholder");
+        setConstraints(constraints, 0, 0, 1, 1);
+        add(timerLabel, constraints);
 
-        lbQuestion = new JLabel();
-        setConstraints(con, 0, 1, 2, 1);
-        add(lbQuestion, con);
+        questionLabel = new JLabel("Question Placeholder");
+        setConstraints(constraints, 0, 1, 2, 1);
+        add(questionLabel, constraints);
 
-        rbOption1 = new JRadioButton();
-        rbOption2 = new JRadioButton();
-        rbOption3 = new JRadioButton();
-        rbOption4 = new JRadioButton();
+        nextButton = new JButton("Next");
+        setConstraints(constraints, 2, 6, 1, 1);
+        add(nextButton, constraints);
 
-        ButtonGroup optionGroup = new ButtonGroup();
-        optionGroup.add(rbOption1);
-        optionGroup.add(rbOption2);
-        optionGroup.add(rbOption3);
-        optionGroup.add(rbOption4);
+        submitButton = new JButton("Submit");
+        setConstraints(constraints, 3, 6, 1, 1);
+        add(submitButton, constraints);
 
-        setConstraints(con, 0, 2, 2, 1);
-        add(rbOption1, con);
-        setConstraints(con, 0, 3, 2, 1);
-        add(rbOption2, con);
-        setConstraints(con, 0, 4, 2, 1);
-        add(rbOption3, con);
-        setConstraints(con, 0, 5, 2, 1);
-        add(rbOption4, con);
-
-        btnNext = new JButton("Next");
-        setConstraints(con, 2, 6, 1, 1);
-        add(btnNext, con);
-
-        btnSubmit = new JButton("Submit");
-        setConstraints(con, 3, 6, 1, 1);
-        add(btnSubmit, con);
-
-        lbInstruction = new JLabel("Instructions\n 1. Once You click on next you cannot attempt that question again. \n 2. After answering all the questions click on 'Submit' Button");
-        setConstraints(con, 0, 7, 4, 1);
-        add(lbInstruction, con);
-        
         setVisible(true);
+
+        quizDatabase = new QuizDatabase();
+
+        nextButton.addActionListener(e -> {
+            String nextQuestion = quizDatabase.getNextQuestion(currentQuestionNumber);
+            if (nextQuestion != null) {
+                questionLabel.setText(nextQuestion);
+                currentQuestionNumber++;
+            } else {
+                questionLabel.setText("No more questions!");
+                nextButton.setEnabled(false);
+            }
+        });
+
+        submitButton.addActionListener(e -> {
+            String selectedAnswer; 
+            if (selectedAnswer != null) {
+                boolean isSubmitted = quizDatabase.submitAnswer(currentQuestionNumber, selectedAnswer);
+
+                if (isSubmitted) {
+                    JOptionPane.showMessageDialog(this, "Answer submitted successfully!");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to submit answer!");
+                }
+            } else {
+                JOptionPane.showMessageDialog(this, "Please select an answer!");
+            }
+        });
+
     }
 
-    public void setConstraints(GridBagConstraints con, int x, int y, int w, int h) {
-        con.fill = GridBagConstraints.HORIZONTAL;
-        con.gridx = x;
-        con.gridy = y;
-        con.gridwidth = w;
-        con.gridheight = h;
-        con.ipadx = 0;
-        con.ipady = 0;
-        con.weightx = 0.5;
-        con.weighty = 0.5;
+    private void setConstraints(GridBagConstraints constraints, int x, int y, int w, int h) {
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.gridx = x;
+        constraints.gridy = y;
+        constraints.gridwidth = w;
+        constraints.gridheight = h;
+        constraints.ipadx = 0;
+        constraints.ipady = 0;
+        constraints.weightx = 0.5;
+        constraints.weighty = 0.5;
     }
 
     public static void main(String[] args) {
-         new MainQuiz().initializeUI();
+        new MainQuiz().initializeUI();
     }
+}
+
+class QuizDatabase {
+    private Connection connection;
+
+    public QuizDatabase() {
+        connect();
+    }
+
+    private void connect() {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+            connection = DriverManager.getConnection("jdbc:mysql://localhost:3306/pizzaordersystem", "root", "root");
+        } catch (ClassNotFoundException | SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String getNextQuestion(int questionNumber) {
+        String query = "SELECT question FROM  WHERE  = ?";
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setInt(1, questionNumber);
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            if (resultSet.next()) {
+                return resultSet.getString("question");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+        public boolean submitAnswer(int questionNumber, String answer) {
+        String query = "UPDATE your_question_table SET  = ? WHERE  = ?";
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setString(1, answer);
+            preparedStatement.setInt(2, questionNumber);
+
+            int rowsAffected = preparedStatement.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
 }
