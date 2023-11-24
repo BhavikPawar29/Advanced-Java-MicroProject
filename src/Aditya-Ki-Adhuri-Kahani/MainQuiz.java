@@ -100,7 +100,7 @@ class QuizDatabase {
     }
 
     public String getNextQuestion(int questionNumber) {
-        String query = "SELECT question FROM tblQuiz WHERE  = ?";
+        String query = "SELECT question_text FROM tblQuestions WHERE question_no = ? AND quiz_id = ?";
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(query);
             preparedStatement.setInt(1, questionNumber);
@@ -115,7 +115,7 @@ class QuizDatabase {
         return null;
     }
         public boolean submitAnswer(int questionNumber, String answer) {
-        String query = "UPDATE tblQuiz SET  = ? WHERE  = ?";
+        String query = "UPDATE tblQuestions SET user_answer = ? WHERE question_no = ? AND quiz_id = ?";
         try {
             PreparedStatement preparedStatement = connection.prepareStatement(query);
             preparedStatement.setString(1, answer);
@@ -128,5 +128,19 @@ class QuizDatabase {
         }
         return false;
     }
+     public boolean addQuizDetails(int quizId, String enrollmentNo, String studentName) {
+        String query = "INSERT INTO quiz_details (quiz_id, enrollment_no, student_name) VALUES (?, ?, ?)";
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement(query);
+            preparedStatement.setInt(1, quizId);
+            preparedStatement.setString(2, enrollmentNo);
+            preparedStatement.setString(3, studentName);
+
+            int rowsAffected = preparedStatement.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
 
 }
