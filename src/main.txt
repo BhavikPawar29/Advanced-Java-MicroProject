@@ -1,0 +1,541 @@
+
+I wanto build a genome assembly, genome prediction and functional annotation pipeline.
+I want to use a GNN model with de novo assembly algo for assembly, and for genome prediction and annotation I want a CNN model.
+I have >NC_000001.11 Homo sapiens chromosome 1, GRCh38.p14 Primary Assembly data, (which I guess we'll use for assembly). Now as the GNN is training on the data, I want the predicted assembled genes for the genome predicted and functional annotation.
+after each model is trained, (from assembly model I want- assembled genomes, number of reads and contings, from prediction model I want gene prediction and from annotation mdoel i want annotated genes)
+I have build a basic code for it can you help me.
+
+from Bio import SeqIO
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio.SeqFeature import SeqFeature, FeatureLocation
+#from igraph import Graph, topological_sort
+from tensorflow import keras
+from tensorflow.keras.layers import Conv1D, MaxPooling1D, Flatten, Dense, Dropout
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+import numpy as np
+import pandas as pd
+
+
+import torch
+import torch.nn as nn
+import torch_geometric.nn as pyg_nn
+from torch_geometric.data import Data
+from torch_geometric.utils import to_networkx
+import networkx as nx
+
+class ConvBuilder:
+
+    def __init__(self, input_shape, num_classes, max_sequence_length,learning_rate=0.001):
+        self.input_shape = input_shape
+        self.num_classes = num_classes
+        self.learning_rate = learning_rate
+        self.max_sequence_length = max_sequence_length
+        self._build_model()
+
+
+    @staticmethod
+    def one_hot_encoding(self, sequences, max_sequence_length=None):
+        """
+        Perform one-hot encoding on DNA sequences.
+
+        Parameters:
+        - sequences (list): List of DNA sequences (Biopython SeqRecord objects).
+        - max_sequence_length (int): Maximum sequence length for padding.
+
+        Returns:
+        - numpy.ndarray: One-hot encoded sequences.
+        """
+        encoded_sequences = []
+        base = {'A': [1, 0, 0, 0], 'T': [0, 1, 0, 0], 'G': [0, 0, 1, 0], 'C': [0, 0, 0, 1]}
+
+        for sequence_entry in sequences:
+            header, sequence = sequence_entry.split('\n', 1)
+            sequence = sequence.replace('\n', '').upper()
+            one_hot_sequence = []
+
+            # Update max_sequence_length
+            if len(sequence) > self.max_sequence_length:
+                self.max_sequence_length = len(sequence)
+
+            for nt in sequence:
+                if nt in base:
+                    one_hot_sequence.extend(base[nt])
+                else:
+                    one_hot_sequence.extend([0.25, 0.25, 0.25, 0.25])
+
+            if max_sequence_length:
+                one_hot_sequence += [0] * (4 * (max_sequence_length - len(sequence)))
+
+            encoded_sequences.append(one_hot_sequence)
+
+        return np.array(encoded_sequences)
+
+    def _build_model(self):
+        self.model = tf.keras.Sequential([
+            tf.keras.layers.Conv2D(
+                32, 
+                5, 
+                activation='relu', 
+                input_shape=self.input_shape
+            ),
+            tf.keras.layers.MaxPooling2D(
+                2
+            ),
+            tf.keras.layers.Conv2D(
+                64, 
+                3, 
+                activation='relu'
+            ),
+            tf.keras.layers.MaxPooling2D(
+                2
+            ),
+            tf.keras.layers.Conv2D(
+                128, 
+                3, 
+                activation='relu'
+            ),
+            tf.keras.layers.MaxPooling2D(
+                2
+            ),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(
+                256, 
+                activation='relu'
+            ),
+            tf.keras.layers.Dropout(0.5),
+            tf.keras.layers.Dense(
+                self.num_classes, 
+                activation='softmax'
+            )
+        ])
+
+        self.model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=self.learning_rate),
+                           loss='categorical_crossentropy',
+                           metrics=['accuracy']
+                        )
+
+    def get_Model():
+        return self.model
+
+    def _extract(self, sequence, features, task):
+        """
+        Extract sequences and labels for annotation or gene prediction.
+
+        Parameters:
+        - sequence (DataFrame): DataFrame containing genomic sequence data.
+        - features (DataFrame): DataFrame containing genomic features data.
+        - task (str): 'annotation' or 'prediction' to specify the task.
+
+        Returns:
+        - X_train (Series): Series containing genomic sequences.
+        - y_train (tuple): Tuple containing various gene-related information.
+        """
+        X_train = sequence['Sequence']
+
+        if task == 'annotation':
+            y_train = sequence['Description']['Gene_Info']['seq_id'], features['feature_type'], features['attributes']
+        elif task == 'prediction':
+            y_train = features['start'], features['end'], features['strand']
+
+        return X_train, y_train
+
+
+    
+    def _encodeLabels(self, y_train):
+        """
+        Encode labels using LabelEncoder.
+
+        Parameters:
+        - y_train_annotation (tuple): Tuple containing various gene-related information.
+
+        Returns:
+        - y_train_annotation_encoded (numpy.ndarray): Encoded labels for functional annotation.
+        - num_classes_annotation (int): Number of classes for annotation.
+        """
+        label_encoder = LabelEncoder()
+        # Encode labels using LabelEncoder
+        y_train_annotation_encoded = label_encoder_annotation.fit_transform(y_train_annotation)
+        num_classes_annotation = len(label_encoder_annotation.classes_)
+
+        return  y_train_annotation_encoded, num_classes_annotation
+
+    def train_model(self, X_train, y_train, X_val, y_val,  batch_size=32, epochs=100):
+        """
+        Trains the CNN model.
+
+        Parameters:
+        - X_train: Training data.
+        - y_train: Training labels.
+        - X_val: Validation data.
+        - y_val: Validation labels.
+        - epochs (int): Number of training epochs.
+        - batch_size (int): Batch size for training.
+
+        Returns:
+        - History: Training history.
+        """
+
+        history = self.model.fit(
+            X_train,
+            y_train,
+            epochs=epochs,
+            batch_size= batch_size,
+            validation_data=(X_val, y_val)
+        )
+
+        return  history
+
+    def _evaluate_model(self, X_test, y_test):
+        """
+        Evaluates the CNN model on the test set.
+
+        Parameters:
+        - X_test: Test data.
+        - y_test: Test labels.
+
+        Returns:
+        - tuple: Test loss and test accuracy.
+        """
+        return self.model.evaluate(X_test, y_test)
+
+class GenomicDataProcessor:
+    """
+    Class for processing genomic data from GFF and FASTA files.
+    """
+    def __init__(self, gff_file_path, fasta_file_path, cds_file_path):
+        """
+        Initializes the GenomicDataProcessor.
+
+        Parameters:
+        - gff_file_path (str): Path to the GFF file.
+        - fasta_file_path (str): Path to the FASTA file.
+        """
+        self.gff_file = gff_file_path
+        self.fasta_file = fasta_file_path
+        self.cds_file = cds_file_path
+        self.gff_data = None
+        self.fasta_data = []
+
+    def _extract_seqId(description):
+        """
+        Extracts the sequence ID from the description.
+
+        Parameters:
+        - description (str): Sequence description.
+
+        Returns:
+        - str: Extracted sequence ID.
+        """
+        pattern = r"(\w+\.\d+)"
+        match = re.search(pattern, description)
+        return match.group(1) if match else None
+
+    def read_gff(self):
+        """
+        Reads GFF data from the specified file and stores it in a DataFrame.
+        """
+        logging.info("Reading GFF data...")
+        data = []
+
+        with open (self.gff_file, "r") as file:
+            for record  in SeqIO.parse(file, 'gff'):
+                for feature in record.features:
+                    seq_id = record.id
+                    source = feature.qualifiers.get('source', [''])[0]
+                    feature_type = feature.type
+                    start = feature.location.start
+                    end = feature.location.end
+                    strand = feature.location.strand
+
+                    strand = 1 if strand == 1 else -1
+
+                    attributes = features.qualifiers.get('attributes', '')
+
+                    data.append({
+                        "seq_id": seq_id,
+                        "source": source,
+                        "feature_type": feature_type,
+                        "start": start,
+                        "end": end,
+                        "strand": strand,
+                        "attributes": attributes,
+                        "feature": feature
+                    })
+
+                    self.gff_data = pd.DataFrame(gff_data_list)
+
+    def read_fasta(self, chunk_size=1000):
+        """
+        Reads FASTA data from the specified file and stores it in chunks in a list.
+
+        Parameters:
+        - chunk_size (int): Size of each data chunk.
+        """
+        sequences = []
+        gene_info = []
+
+        with open (self.fasta_file, "r") as handle:
+            for record in SeqIO.parse(handle, "fasta"):
+                sequences.append(str(record.seq))
+
+                gene = {}
+                seq_id = self._extract_seqId(record.description)
+                gene['seq_id'] = seq_id
+
+                for item in record.description.split("[")[:]:
+                    parts = item.strip("]").split("=", 1)
+                    if len(parts) == 2:
+                        key, value = parts
+                        gene[key.strip()] = value.strip()
+
+                gene_info.append(gene)
+
+                if len(sequences) >= chunk_size:
+                    df_chunk = pd.DataFrame({
+                        'Sequence': sequences,
+                        'Description': [record.description],
+                        'Gene_Info': gene
+                    })
+                    self.fasta_data.append(df_chunk)
+
+                    sequences = []
+                    gene_info_list = []
+
+        if sequences:
+            df_last_chunk = pd.DataFrame({
+                'Sequence': sequences,
+                'Description': [record.description] * len(sequences),
+                'Gene_Info': gene_info_list
+            })
+
+            self.fasta_data.append(df_last_chunk)
+
+    def _calculate_length(self):
+        """Calculates the length of a given sequence"""
+        sequences = []
+
+        for df_chunk in self.fasta_data:
+            sequences.extend(df_chunk['Sequence'])
+
+        sequence_lengths = [len(sequence) for sequence in sequences]
+
+        mean_length = np.mean(sequence_lengths)
+        max_length = np.max(sequence_lengths)
+
+        max_sequence_length = max_length
+
+        return max_sequence_length
+
+
+        def get_fasta_data(self):
+            return self.fasta_data
+
+        def get_gff_data(self):
+            return self.gff_data
+
+
+class GenomicAnalysis:
+    def __init__(self,  fasta_file=None, gff_file=None):
+        """
+        Class for genomic analysis using a combination of data processing and CNN-based models.
+
+        Parameters:
+        - gff_file_path (str): Path to the GFF file.
+        - fasta_file_path (str): Path to the FASTA file.
+        """
+        self.fasta_file, self.gff_file = fasta_file, gff_file
+        self.geneModel = GenomicDataProcessor(fasta_file, fasta_file)
+        self.geneConv = ConvBuilder()
+        
+        # Load genomic data into DataFrames
+        self.df_sequence = self.geneModel.get_fasta_data()
+        self.df_features = self.geneModel.get_gff_data()
+
+    
+    def functional_annotation(self):
+        """
+        Perform functional annotation of genes in a given genomic sequence using CNN-based models.
+        """
+        X, y = geneConv._extract(self.df_sequence, self.df_features, task='annotation')
+
+        X_train_encoded = self.geneConv.one_hot_encoding(X)
+
+        X_train_annotation, X_temp_annotation, y_train_annotation, y_temp_annotation = train_test_split(
+            X_train_encoded, 
+            y, 
+            test_size=0.2, 
+            random_state=42
+        )
+
+        X_val_annotation, X_test_annotation, y_val_annotation, y_test_annotation = train_test_split(
+            X_temp_annotation, 
+            y_temp_annotation, 
+            test_size=0.4, 
+            random_state=42
+        )
+
+        y_train, num_classes = self.geneConv._encodeLabels(y_train_annotation)
+
+        len = self.geneModel._calculate_length()
+        input_shape = (len, 4)
+
+        self.geneConv = ConvBuilder(input_shape, num_classes, len)
+
+        # Train the model and get training history
+        hist = self.geneConv.train_model(
+            X_train_annotation, 
+            y_train, 
+            X_val_annotation, 
+            y_val_annotation
+        )
+
+        test_loss,  test_accuracy = self.geneConv.evaluate_model(X_test_annotation, y_test_annotation)
+        
+        print("Test Loss: ", test_loss)
+        print("Test Accuracy: ", test_acc)
+
+        return hist, test_loss, test_accuracy
+    
+    def genome_prediction(self, df_sequences):
+        """
+        Perform gene prediction in a given genomic sequence using CNN-based models.
+        """
+        X, y = _extract(self.df_sequence, self.df_features, task='prediction')
+
+        X_train_encoded = self.geneConv.one_hot_encoding(X)
+
+        X_train_prediction, X_temp_prediction,y_train_prediction, y_temp_prediction = train_test_split(
+            X_train_encoded, 
+            y, 
+            test_size=0.2, 
+            random_state=42
+        )
+
+        X_val_prediction,  X_test_prediction, y_val_prediction, y_test_prediction = train_test_split(
+            X_temp_prediction, 
+            y_temp_prediction,
+            test_size=0.4,
+            random_state=42
+        )
+
+        y_train, num_classes = self.geneConv._encodeLabels(y_train_prediction)
+
+        len = self.geneModel._calculate_length()
+        input_shape = (len, 4)
+
+        self.geneConv = ConvBuilder(input_shape, num_classes, len)
+
+        hist = self.geneConv.train_model(
+            X_train_annotation, 
+            y_train, 
+            X_val_annotation, 
+            y_val_annotation
+        )
+
+        test_loss,  test_accuracy = self.geneConv.evaluate_model(X_test_annotation, y_test_annotation)
+
+        return hist, test_loss, test_accuracy
+
+"""
+class DeBruijnGNN(nn.Module):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_classes):
+        super(DeBruijnGNN, self).__init__()
+        self.conv1 = pyg_nn.GCNConv(input_dim, hidden_dim)
+        self.conv2 = pyg_nn.GCNConv(hidden_dim, output_dim)
+
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+        x = self.conv1(x, edge_index)
+        x = torch.relu(x)
+        x = self.conv2(x, edge_index)
+        return torch.nn.functional.log_softmax(x, dim=1)
+
+    def de_novo_assembly(sequences):
+        kmer_size = 25
+        g = nx.Graph()
+
+        seq = str(sequences[0].seq)
+
+        kmer_to_vertex = {}
+        for sequence in sequences:
+            for i in range(len(seq) - kmer_size + 1):
+                kmer = seq[i:i + kmer_size]
+                if kmer not in kmer_to_vertex:
+                    kmer_to_vertex[kmer] = len(kmer_to_vertex)
+                    g.add_node(kmer_to_vertex[kmer])
+
+        for sequence in sequences:
+            for i in range(len(seq) - kmer_size):
+                kmer1 = seq[i:i+kmer_size]
+                kmer2 = seq[i + 1:i + kmer_size + 1]
+                v1 = kmer_to_vertex[kmer1]
+                v2 = kmer_to_vertex[kmer2]
+                g.add_edge(v1, v2)
+
+        data = to_networkx(g)
+        edge_index = np.array(list(data.edges)).T
+        x = torch.eye(len(kmer_to_vertex))
+
+        return data, edge_index, x, kmer_to_vertex
+
+    def train_gnn(data, edge_index, x):
+        input_dim = data.num_nodes
+        hidden_dim = 64
+        output_dim = data.num_nodes
+        model = DeBruijnGNN(input_dim, hidden_dim, output_dim)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+        criterion = nn.CrossEntropyLoss()
+
+        for epoch in range(100):
+            optimizer.zero_grad()
+            out = model(data)
+            loss = criterion(out[data.edge_index[0]], data.edge_index[1])
+            loss.backward()
+            optimizer.step()
+
+        return model
+
+    def assemble_sequence(sequences, model, kmer_to_vertex):
+        data, _, _, _ = de_novo_assembly(sequences)
+
+        # Use the trained GNN model to predict the best path
+        with torch.no_grad():
+            out = model(data)
+
+        # Extract the best path from the GNN output
+        _, best_path_indices = torch.max(out, dim=1)
+        best_path = [list(kmer_to_vertex.keys())[i] for i in best_path_indices]
+
+        assembled_genome = Seq("".join(best_path))
+        return SeqRecord(assembled_genome, id="assembled_genome", description="Assembled Genome")
+
+"""
+
+fasta = "fasta_data_all.csv"
+gff = "gff_data.csv"
+
+analysis = GenomicAnalysis(fasta, gff)
+
+func_history, func_test_loss, func_test_acc = analysis.functional_annotation()
+pred_history, pred_test_loss, pred_test_loss = analysis.genome_prediction()
+
+
+#------------ GENOME PREDCTIONS ------------#
+
+def genome_prediction(sequence, features):
+    X_train = str(sequences[0].seq)
+    y_train = features['start']['end']['strand']
+    
+    #Parameters
+    epochs, batch_size = 100, 32
+
+    model, hist, test_acc, test_loss = trainModel(X_train, y_train, epochs, batch_size, task='prediction')
+
+def functiona_annotation(sequences, features):
+    X_train = str(sequences[0].seq)
+    y_train = None
+    pass
