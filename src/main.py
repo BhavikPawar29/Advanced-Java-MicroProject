@@ -16,6 +16,12 @@ from Bio.SeqRecord import SeqRecord
 import pandas as pd
 import numpy as np
 
+import tensorflow as tf
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from torch_geometric.nn import GCNConv
+import matplotlib.pyplot as plt
+
 #Parameters
 epochs, batch_size = 100, 32
 
