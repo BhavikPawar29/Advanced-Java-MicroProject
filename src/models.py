@@ -1,5 +1,4 @@
 import pickle
-from main import geneModel, funcModel
 
 def save_model(model, file_path):
     """
