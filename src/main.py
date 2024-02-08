@@ -41,17 +41,8 @@ def _extract_seq_id(description):
     match = re.search(pattern, description)
     return match.group(1) if match else None
 
-def read_gff(gff_file):
-    """
-    Reads GFF data from the specified file and stores it in a DataFrame.
-
-    Parameters:
-    - gff_file (str): Path to the GFF file.
-
-    Returns:
-    - pd.DataFrame: DataFrame containing GFF data.
-    """
-    logging.info("Reading GFF data...")
+def read_gff(gff_file, chunk_size=1000):
+    logging.info("Reading GFF data in chunks...")
     gff_data_list = []
 
     with open(gff_file, "r") as file:
@@ -79,7 +70,14 @@ def read_gff(gff_file):
                     "feature": feature
                 })
 
-    return pd.DataFrame(gff_data_list)
+                # Check if the list has reached the specified chunk size
+                if len(gff_data_list) >= chunk_size:
+                    yield pd.DataFrame(gff_data_list)
+                    gff_data_list = []
+
+    # Yield the remaining data (if any) as the last chunk
+    if gff_data_list:
+        yield pd.DataFrame(gff_data_list)
 
 def read_fasta(fasta_file, chunk_size=1000):
     logging.info("Reading FASTA data...")
@@ -232,27 +230,34 @@ class DeBruijnGNN(nn.Module):
             return F.log_softmax(x, dim=1)
 
     @staticmethod
-    def de_novo_assembly(sequences):
+    def de_novo_assembly(df_sequences, chunk_size=100):
         kmer_size = 25
         g = nx.Graph()
 
-        seq = str(sequences[0].seq)
+        sequences = df_sequences['Sequence']
 
-        kmer_to_vertex = {}
-        for sequence in sequences:
-            for i in range(len(seq) - kmer_size + 1):
-                kmer = seq[i:i + kmer_size]
-                if kmer not in kmer_to_vertex:
-                    kmer_to_vertex[kmer] = len(kmer_to_vertex)
-                    g.add_node(kmer_to_vertex[kmer])
+        # Process sequences in chunks
+        for chunk_start in range(0, len(sequences), chunk_size):
+            chunk_end = min(chunk_start + chunk_size, len(sequences))
+            chunk_sequences = sequences.iloc[chunk_start:chunk_end]
 
-        for sequence in sequences:
-            for i in range(len(seq) - kmer_size):
-                kmer1 = seq[i:i+kmer_size]
-                kmer2 = seq[i + 1:i + kmer_size + 1]
-                v1 = kmer_to_vertex[kmer1]
-                v2 = kmer_to_vertex[kmer2]
-                g.add_edge(v1, v2)
+            seq = chunk_sequences.iloc[0]
+
+            kmer_to_vertex = {}
+            for sequence in chunk_sequences:
+                for i in range(len(seq) - kmer_size + 1):
+                    kmer = seq[i:i + kmer_size]
+                    if kmer not in kmer_to_vertex:
+                        kmer_to_vertex[kmer] = len(kmer_to_vertex)
+                        g.add_node(kmer_to_vertex[kmer])
+
+            for sequence in chunk_sequences:
+                for i in range(len(seq) - kmer_size):
+                    kmer1 = seq[i:i+kmer_size]
+                    kmer2 = seq[i + 1:i + kmer_size + 1]
+                    v1 = kmer_to_vertex[kmer1]
+                    v2 = kmer_to_vertex[kmer2]
+                    g.add_edge(v1, v2)
 
         data = to_networkx(g)
         edge_index = torch.tensor(list(data.edges)).t().contiguous()
@@ -260,7 +265,8 @@ class DeBruijnGNN(nn.Module):
 
         return data, edge_index, x, kmer_to_vertex
 
-    @staticmethod
+
+    @staticmethod 
     def train_gnn(data, edge_index, x):
         input_dim = data.num_nodes
         hidden_dim = 64
@@ -365,6 +371,33 @@ def _extract(self, sequence, features, task):
     elif task == 'prediction':
         y_train = features['start'], features['end'], features['strand']
 
+def save_model(file_path, model):
+    """
+    Saves the model to the specified file path using pickle.
+
+    Parameters:
+    - model: The model to be saved.
+    - file_path (str): The file path where the model will be saved.
+    """
+    with open(file_path, 'wb') as file:
+        pickle.dump(model, file)
+        print(f"Model saved using pickle to {file_path}")
+
+def load_model(file_path):
+    """
+    Loads the model from the specified file path using pickle.
+
+    Parameters:
+    - file_path (str): The file path where the model is saved.
+
+    Returns:
+    - model: The loaded model.
+    """
+    with open(file_path, 'rb') as file:
+        model = pickle.load(file)
+        print(f"Model loaded using pickle from {file_path}")
+    return model
+
 def plot_training_history(history):
     # Plot training history
     plt.figure(figsize=(12, 6))
@@ -395,7 +428,7 @@ if __name__ == "__main__":
     read_fasta_done = False
 
     # Read FASTA file
-    df_sequence = read_fasta(r"C:\Users\Bhavik D.Pawar\Documents\Bhavik_Pawar\Project Aqulia\GCF_000001405.40_GRCh38.p14_genomic.fna")
+    df_sequence, _ = read_fasta(r"C:\Users\Bhavik D.Pawar\Documents\Bhavik_Pawar\Project Aqulia\GCF_000001405.40_GRCh38.p14_genomic.fna")
     read_fasta_done = True
 
     # Wait until the first file reading is done
@@ -420,3 +453,7 @@ if __name__ == "__main__":
     funcModel, funcHist, funcTest_acc, funcTest_loss = trainModel(assembled_genome, df_features, epochs, batch_size, task='annotation')
     plot_training_history(funcHist)
     predict_and_annotate(funcModel, assembled_genome)
+
+    #save Models
+    save_model("C:\\Users\\Bhavik D.Pawar\\Documents\\Bhavik_Pawar\\PythonJP\\Project Promethes\\", geneModel)
+    save_model("C:\\Users\\Bhavik D.Pawar\\Documents\\Bhavik_Pawar\\PythonJP\\Project Promethes\\", funcModel)
