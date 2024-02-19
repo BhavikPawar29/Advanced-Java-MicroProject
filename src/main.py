@@ -256,14 +256,16 @@ class DeBruijnGNN(nn.Module):
             annotations={"num_reads": num_reads,
                          "num_contigs": num_contigs}
         )
+
+
+# ----------------- GENE PREDICTIONS AND FUNCTIONAL ANNOTATION  ------------------#
 def predict_and_annotate(model, X):
     predictions_proba = model.predict(X)
     predicted_classes = np.argmax(predictions_proba, axis=1)
     return predicted_classes
 
 
-# ----------------- GENE PREDICTIONS  ------------------#
-
+# ----------------- HELPER FUNCTIONS -------------------#
 def _one_hot_encoding(sequences, max_sequence_length=None):
     base_mapping = {'A': [1, 0, 0, 0], 'T': [0, 1, 0, 0], 'G': [0, 0, 1, 0], 'C': [0, 0, 0, 1]}
     default_mapping = [0.25, 0.25, 0.25, 0.25]
@@ -285,44 +287,6 @@ def _one_hot_encoding(sequences, max_sequence_length=None):
             encoded_sequences[i] += [default_mapping] * (max_sequence_length - len(encoded_sequences[i]))
 
     return np.array(encoded_sequences), max_len
-
-
-# ----------------- HELPER FUNCTIONS -------------------#
-
-@staticmethod
-def de_novo_assembly(df_sequences, chunk_size=100):
-    kmer_size = 25
-    g = nx.Graph()
-
-    sequences = df_sequences['Sequence']
-
-    for chunk_start in range(0, len(sequences), chunk_size):
-        chunk_end = min(chunk_start + chunk_size, len(sequences))
-        chunk_sequences = sequences.iloc[chunk_start:chunk_end]
-
-        seq = chunk_sequences.iloc[0]
-
-        kmer_to_vertex = {}
-        for sequence in chunk_sequences:
-            for i in range(len(seq) - kmer_size + 1):
-                kmer = seq[i:i + kmer_size]
-                if kmer not in kmer_to_vertex:
-                    kmer_to_vertex[kmer] = len(kmer_to_vertex)
-                    g.add_node(kmer_to_vertex[kmer])
-
-        for sequence in chunk_sequences:
-            for i in range(len(seq) - kmer_size):
-                kmer1 = seq[i:i + kmer_size]
-                kmer2 = seq[i + 1:i + kmer_size + 1]
-                v1 = kmer_to_vertex[kmer1]
-                v2 = kmer_to_vertex[kmer2]
-                g.add_edge(v1, v2)
-
-    data = to_networkx(g)
-    edge_index = torch.tensor(list(data.edges)).t().contiguous()
-    x = torch.eye(len(kmer_to_vertex))
-
-    return data, edge_index, x, kmer_to_vertex
 
 
 def _extract(sequence, features, task):
